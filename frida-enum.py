@@ -1,7 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
+import json
+
 import frida
 from frida_tools.application import ConsoleApplication
+
+try:
+    from pygments import highlight
+    from pygments.lexers import JsonLexer
+    from pygments.formatters import TerminalFormatter
+except ImportError:
+    PYGMENTS = False
+else:
+    PYGMENTS = True
 
 JS_CALLBACK_OBJ = """
 rpc.exports = {
@@ -57,6 +68,12 @@ rpc.exports = {
         })
     },
 
+    java_class_loaders: function(filter) {
+        Java.perform(function() {
+            return Java.enumerateClassLoadersSync()
+        })
+    },
+
     java_instances: function(className) {
         Java.perform(function() {
             return Java.chooseSync(className);
@@ -69,7 +86,7 @@ rpc.exports = {
     },
 
     objc_instances: function(module) {
-        return ObjC.chooseSync(module);
+        return ObjC.choose(module);
     },
 
     objc_protocols: function(module) {
@@ -126,6 +143,8 @@ class EnumerApplication(ConsoleApplication):
         # Java
         parser.add_option("-j", "--java-loaded-classes", help="enumerate Java LOADED CLASSES",
                 action="callback", callback=lambda a,b,c,d: self.cmds.append("java_loaded_classes"))
+        parser.add_option("--java-class-loaders", help="enumerate Java CLASS LOADERS",
+                action="callback", callback=lambda a,b,c,d: self.cmds.append("java_class_loaders"))
         parser.add_option("--java-instances", help="enumerate Java OBJECT INSTANCES",
                 action="callback", callback=lambda a,b,c,d: self.cmds.append("java_instances"))
 
@@ -150,7 +169,16 @@ class EnumerApplication(ConsoleApplication):
         script = script_deploy(self._session)
         for cmd in self.cmds:
             fn = getattr(script.exports, cmd)
-            print(fn())
+
+            json_str = json.dumps(fn(), indent=4, sort_keys=True)
+
+            if PYGMENTS:
+                print(highlight(json_str, JsonLexer(), TerminalFormatter()))
+            else:
+                print(json_str)
+
+        script.unload()
+        self._exit(0)
 
 
 def main():
