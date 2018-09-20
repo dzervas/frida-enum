@@ -21,15 +21,15 @@ rpc.exports = {
         return Process.enumerateModulesSync();
     },
 
-    module_imports: function(module) {
+    moduleImports: function(module) {
         return Module.enumerateImportsSync(module);
     },
 
-    module_exports: function(module) {
+    moduleExports: function(module) {
         return Module.enumerateExportsSync(module);
     },
 
-    module_symbols: function(module) {
+    moduleSymbols: function(module) {
         return Module.enumerateSymbolsSync(module);
     },
 
@@ -38,7 +38,7 @@ rpc.exports = {
         return Process.enumerateThreadsSync();
     },
 
-    malloc_ranges: function() {
+    mallocRanges: function() {
         return Process.enumerateThreadsSync();
     },
 */
@@ -47,51 +47,51 @@ rpc.exports = {
     },
 
     // Kernel
-    kernel_modules: function() {
-        return Process.enumerateModulesSync();
+    kernelModules: function() {
+        return Kernel.enumerateModulesSync();
     },
 
 /*
-    kernel_ranges: function() {
-        return Process.enumerateThreadsSync();
+    kernelRanges: function() {
+        return Kernel.enumerateThreadsSync();
     },
 
-    kernel_malloc_ranges: function() {
-        return Process.enumerateThreadsSync();
+    kernelMallocRanges: function() {
+        return Kernel.enumerateThreadsSync();
     },
 */
 
     // Java
-    java_loaded_classes: function(filter) {
+    javaLoadedClasses: function(filter) {
         Java.perform(function() {
             return Java.enumerateLoadedClassesSync()
         })
     },
 
-    java_class_loaders: function(filter) {
+    javaClassLoaders: function(filter) {
         Java.perform(function() {
             return Java.enumerateClassLoadersSync()
         })
     },
 
-    java_instances: function(className) {
+    javaInstances: function(className) {
         Java.perform(function() {
             return Java.chooseSync(className);
         });
     },
 
     // ObjC
-    objc_classes: function() {
+    objcClasses: function() {
         return ObjC.classes;
     },
 
-    objc_instances: function(module) {
+    objcInstances: function(module) {
         return ObjC.choose(module);
     },
 
-    objc_protocols: function(module) {
+    objcProtocols: function(module) {
         return ObjC.protocols;
-    },
+    }
 }
 
 """
@@ -170,7 +170,9 @@ class EnumerApplication(ConsoleApplication):
         for cmd in self.cmds:
             fn = getattr(script.exports, cmd)
 
-            json_str = json.dumps(fn(), indent=4, sort_keys=True)
+            res = fn(self._options.module)
+
+            json_str = json.dumps(res, indent=4, sort_keys=True)
 
             if PYGMENTS:
                 print(highlight(json_str, JsonLexer(), TerminalFormatter()))
