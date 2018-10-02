@@ -2,7 +2,6 @@
 from __future__ import unicode_literals, print_function
 import json
 
-import frida
 from frida_tools.application import ConsoleApplication
 
 try:
@@ -115,7 +114,7 @@ class EnumerApplication(ConsoleApplication):
 
     def _add_options(self, parser):
         # Native
-        parser.add_option("-m", "--module", help="enumerate MODULES",
+        parser.add_option("-m", "--module", help="select MODULE",
                 action="store", type="string")
         parser.add_option("-a", "--modules", help="enumerate MODULES",
                 action="callback", callback=lambda a,b,c,d: self.cmds.append("modules"))
