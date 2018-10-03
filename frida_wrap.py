@@ -60,7 +60,6 @@ class FridaWrap(object):
             self.parse()
 
         self.session = frida.attach(self.target)
-        return self.session
 
     def load_script(self, src):
         if self.session is None:
@@ -69,7 +68,9 @@ class FridaWrap(object):
         self.script = self.session.create_script(src)
         self.script.load()
 
-        return self.script
+    def load_file_script(self, fname):
+        with open(fname, "r") as fd:
+            self.load_script(fd.read())
 
 
 if __name__ == "__main__":
