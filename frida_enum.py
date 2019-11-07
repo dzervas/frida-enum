@@ -98,7 +98,7 @@ rpc.exports = {
 
 def script_deploy(session):
     def on_message(msg, data):
-        print("[+] " + msg)
+        print("[+] " + str(msg))
 
     script = session.create_script(name="enum", source=JS_CALLBACK_OBJ)
     script.on("message", on_message)
