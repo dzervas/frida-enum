@@ -3,13 +3,12 @@ from __future__ import unicode_literals, print_function
 import urwid
 from frida_tools.application import ConsoleApplication
 
-import frida_enum
 import frida_wrap
 
 URWID_LOOP = None
 
 
-class JsonTUI():
+class WaterfallTUI():
     pallete = [
         ("default", "white", "black"),
         ("focus", "black", "dark red"),
@@ -52,7 +51,7 @@ class JsonTUI():
 
         self.u_columns = urwid.Columns(self.u_lists)
 
-        header_text = urwid.Text("Frida_Enum TUI", align="center")
+        header_text = urwid.Text("frida-enum TUI", align="center")
         footer_text = urwid.Text("Footer", align="center")
         self.u_header = urwid.AttrMap(header_text, "header")
         self.u_footer = urwid.AttrMap(footer_text, "footer")
@@ -62,28 +61,75 @@ class JsonTUI():
         loop = urwid.MainLoop(self.u_frame, self.pallete, unhandled_input=self.handle_input)
         loop.run()
 
-    @staticmethod
-    def handle_input(key):
+    @property
+    def selected_col(self):
+        return self.u_columns.focus_position
+
+    @selected_col.setter
+    def set_selected_col(self, val):
+        self.u_columns.focus_position = val
+
+    @property
+    def selected_row(self):
+        return self.u_lists[self.selected_col].focus_position
+
+    @selected_row.setter
+    def set_selected_row(self, val):
+        self.u_lists[self.selected_col].focus_position = val
+
+    def set_column_data(self, i, data):
+        self.u_lists[i].body.contents = data
+
+    def handle_input(self, key):
         if key in ("q", "Q"):
             raise urwid.ExitMainLoop()
+        elif key in ("r", "R") and hasattr(self.items[self.selected_col], "_reload"):
+            self.items[self.selected_col] = self.items[self.selected_col]._reload(self)
+        elif key == "enter" and hasattr(self.items[self.selected_col], "_select"):
+            self.items[self.selected_col]._select(self, self.items[self.selected_col][self.selected_row])
         elif key in ("k", "up"):
             self.u_lists[self.u_columns.focus_position].focus_position = (self.u_lists[self.u_columns.focus_position].focus_position - 1) % len(self.u_lists[self.u_columns.focus_position].body)
         elif key in ("j", "down"):
             self.u_lists[self.u_columns.focus_position].focus_position = (self.u_lists[self.u_columns.focus_position].focus_position + 1) % len(self.u_lists[self.u_columns.focus_position].body)
         else:
-            self.u_footer.set_text(f"{key} - Part: {frame.get_focus()} Col: {columns.focus_position} List: {listboxes[columns.focus_position].focus_position} / {len(listboxes[columns.focus_position].body)}")
+            self.u_footer.original_widget.set_text(f"{key} - Part: {self.u_frame.get_focus()} Col: {self.u_columns.focus_position} List: {self.u_lists[self.u_columns.focus_position].focus_position} / {len(self.u_lists[self.u_columns.focus_position].body)}")
+
+
+class ItemList(list):
+    _select = None
+    _reload = None
+
 
 
 def main():
     wrap = frida_wrap.FridaWrap()
-    wrap.attach()
-    script = frida_enum.script_deploy(wrap.session)
+    wrap.load_file_script("frida_enum.js")
 
-    modules = script.exports.modules()
-    cols = [("Modules", print)]
-    items = [modules]
+    columns = [
+        {
+            "Modules": wrap.script.exports.modules,
+            # "Threads": wrap.script.exports.threads,
+            # "Kernel Modules": wrap.script.exports.kernel_modules,
+            "Java Classes": wrap.script.exports.java_loaded_classes,
+            "Java Loaders": wrap.script.exports.java_class_loaders,
+            "ObjC Classes": wrap.script.exports.objc_classes,
+            "ObjC Instances": wrap.script.exports.objc_instances,
+            "ObjC Protocols": wrap.script.exports.objc_protocols,
+        },
+    ]
 
-    tui = JsonTUI(cols, items)
+    def select_module(context, item):
+        names = ItemList([x["name"] for x in wrap.script.exports.module_exports(item["name"])])
+        context.set_column_data(context.selected_col + 1, names)
+
+    modules = ItemList(wrap.script.exports.modules())
+    modules._select = select_module
+    # modules._reload = wrap.script.exports.modules
+
+    cols = [("Modules", print), ("Exports", print)]
+    items = [modules, ItemList()]
+
+    tui = WaterfallTUI(cols, items)
     tui.run()
 
 if __name__ == "__main__":
